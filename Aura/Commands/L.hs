@@ -2,7 +2,7 @@
 
 {-
 
-Copyright 2012, 2013 Colin Woodbury <colingw@gmail.com>
+Copyright 2012, 2013, 2014 Colin Woodbury <colingw@gmail.com>
 
 This file is part of Aura.
 
@@ -47,7 +47,7 @@ viewLogFile logFilePath = shellCmd "less" [logFilePath]
 -- Very similar to `searchCache`. But is this worth generalizing?
 searchLogFile :: [String] -> Aura ()
 searchLogFile input = ask >>= \ss -> liftIO $ do
-  logFile <- lines `fmap` readFileUTF8 (logFilePathOf ss)
+  logFile <- lines <$> readFileUTF8 (logFilePathOf ss)
   mapM_ putStrLn $ searchLines (unwords input) logFile
 
 logInfoOnPkg :: [String] -> Aura ()

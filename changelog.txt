@@ -1,5 +1,49 @@
 Aura Changelog
 ==============
+1.2.2.0
+-------
+- Happy New Year!
+- makepkg's `--ignorearch` flag is now visible to Aura.
+  This allows users to build AUR packages on ARM devices
+  without worrying about architecture restrictions in PKGBUILDs.
+- Use `--head` and `--tail` to truncate `-As` results.
+- `-B` now uses local time.
+- Bug fixes and translation updates
+
+1.2.1.3
+-------
+- `-As` results now sort by vote. Use `--abc` to sort alphabetically.
+- "[installed]" will now be shown in `-As` results if you have it.
+- Fixed Bash parsing bug involving `\` in arrays
+- Fixed broken `-C`
+- Updated Italian translation
+- Updated French translation
+
+1.2.1.2
+-------
+- Happy Canadian Thanksgiving
+- Bug fixes
+
+1.2.1.1
+-------
+- Norwegian translation added!
+- Dependency checks slightly faster
+- `--hotedit` and `--custom` can now be used together
+- Bug fixes
+
+1.2.1.0
+-------
+- New `builduser` option
+- `Prelude.head` bug fixed
+- Dependency checking is faster
+- New `-k` output
+- `--absdeps` works properly now
+- Other bug fixes
+
+1.2.0.2
+-------
+- Bug fixes and spelling corrections.
+
 1.2.0.1
 -------
 - Fixes dependency build order bug.

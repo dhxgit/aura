@@ -1,6 +1,6 @@
 {-
 
-Copyright 2012, 2013 Colin Woodbury <colingw@gmail.com>
+Copyright 2012, 2013, 2014 Colin Woodbury <colingw@gmail.com>
 
 This file is part of Aura.
 
@@ -19,32 +19,37 @@ along with Aura.  If not, see <http://www.gnu.org/licenses/>.
 
 -}
 
-module Aura.Settings.Base ( Settings(..) ) where
+module Aura.Settings.Base ( Settings(..)
+                          , SortScheme(..)
+                          , Truncation(..) ) where
 
-import Data.Set (Set)
-
-import Aura.Settings.BadPackages (Reason)
-import Aura.Languages            (Language)
+import Aura.Languages (Language)
 
 import Shell (Environment)
 
 ---
+
+data SortScheme = ByVote | Alphabetically deriving (Eq,Show)
+
+data Truncation = None | Head | Tail deriving (Eq,Show)
 
 -- The global settings as set by the user with command-line flags.
 data Settings = Settings { inputOf         :: [String]
                          , pacOptsOf       :: [String]
                          , otherOptsOf     :: [String]
                          , environmentOf   :: Environment
+                         , buildUserOf     :: String
                          , langOf          :: Language
                          , pacmanCmdOf     :: String
                          , editorOf        :: String
                          , carchOf         :: String
                          , ignoredPkgsOf   :: [String]
-                         , wontBuildOf     :: [(String,Reason)]
-                         , absTreeOf       :: [(String,Set String)]
+                         , makepkgFlagsOf  :: [String]
                          , buildPathOf     :: FilePath
                          , cachePathOf     :: FilePath
                          , logFilePathOf   :: FilePath
+                         , sortSchemeOf    :: SortScheme  -- For `-As`
+                         , truncationOf    :: Truncation  -- For `-As`
                          , beQuiet         :: Bool
                          , suppressMakepkg :: Bool
                          , delMakeDeps     :: Bool

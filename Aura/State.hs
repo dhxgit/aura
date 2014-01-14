@@ -2,7 +2,7 @@
 
 {-
 
-Copyright 2012, 2013 Colin Woodbury <colingw@gmail.com>
+Copyright 2012, 2013, 2014 Colin Woodbury <colingw@gmail.com>
 
 This file is part of Aura.
 
@@ -52,7 +52,7 @@ import Shell     (ls')
 
 ---
 
-data PkgState = PkgState { timeOf :: SimpleTime
+data PkgState = PkgState { timeOf :: Time
                          , pkgsOf :: M.Map String [Int] }
                 deriving (Eq,Show,Read)
 
@@ -68,12 +68,12 @@ inState (n,v) s = case M.lookup n $ pkgsOf s of
                     Just v' -> v == v'
 
 rawCurrentState :: Aura [String]
-rawCurrentState = lines `fmap` pacmanOutput ["-Q"]
+rawCurrentState = lines <$> pacmanOutput ["-Q"]
 
 currentState :: Aura PkgState
 currentState = do
   pkgs <- rawCurrentState
-  time <- (toSimpleTime . toUTCTime) `fmap` liftIO getClockTime
+  time <- liftIO localTime
   let namesVers = map (pair . words) pkgs
       pair      = \(x:y:_) -> (x, comparableVer y)
   return . PkgState time . M.fromAscList $ namesVers
@@ -95,7 +95,7 @@ olds :: PkgState -> PkgState -> [SimplePkg]
 olds old curr = M.assocs $ M.difference (pkgsOf old) (pkgsOf curr)
 
 getStateFiles :: Aura [FilePath]
-getStateFiles = sort `fmap` (liftIO $ ls' stateCache)
+getStateFiles = sort <$> liftIO (ls' stateCache)
 
 saveState :: Aura ()
 saveState = do
@@ -117,7 +117,7 @@ restoreState = ask >>= \ss -> do
   reinstallAndRemove (mapMaybe (getFilename cache) okay) remo
 
 readState :: FilePath -> Aura PkgState
-readState name = liftIO (read `fmap` readFileUTF8 (stateCache </> name))
+readState name = liftIO (read <$> readFileUTF8 (stateCache </> name))
 
 -- How does pacman do simultaneous removals and upgrades?
 -- I've seen it happen plenty of times.

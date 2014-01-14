@@ -1,6 +1,6 @@
 {-
 
-Copyright 2012, 2013 Colin Woodbury <colingw@gmail.com>
+Copyright 2012, 2013, 2014 Colin Woodbury <colingw@gmail.com>
 
 This file is part of Aura.
 
@@ -37,7 +37,13 @@ data BashIf = If Comparison [Field] (Maybe BashIf)
             | Else [Field]
               deriving (Eq,Show)
 
-data Comparison = Comp BashString BashString deriving (Eq,Show)
+data Comparison = CompEq BashString BashString
+                | CompNe BashString BashString
+                | CompLt BashString BashString
+                | CompLe BashString BashString
+                | CompGt BashString BashString
+                | CompGe BashString BashString
+                  deriving (Eq,Show)
 
 data BashFor = Incr  -- for (x;y;z); do ... done  -- Incomplete!
              | Iter String BashString [Field]  -- for x in y; do ... done

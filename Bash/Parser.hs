@@ -4,7 +4,7 @@
 
 {-
 
-Copyright 2012, 2013 Colin Woodbury <colingw@gmail.com>
+Copyright 2012, 2013, 2014 Colin Woodbury <colingw@gmail.com>
 
 This file is part of Aura.
 
@@ -27,6 +27,7 @@ module Bash.Parser ( parseBash ) where
 
 import Text.ParserCombinators.Parsec
 import Control.Applicative ((<*),(*>),(<*>),(<$>),(<$))
+import Data.Maybe          (catMaybes)
 
 import Bash.Base
 
@@ -61,10 +62,12 @@ comment = Comment <$> comment' <?> "valid comment"
 command :: Parser Field
 command = spaces *> (Command <$> many1 commandChar <*> option [] (try args))
     where commandChar = alphaNum <|> oneOf "./"
-          args = char ' ' >> many (noneOf "`\n") >>= \line ->
-                 case parse (many1 single) "(command)" line of
-                   Left _   -> fail "Failed parsing strings in a command"
-                   Right bs -> return $ concat bs
+          args = char ' ' >> unwords <$> line >>= \ls ->
+                   case parse (many1 single) "(command)" ls of
+                     Left _   -> fail "Failed parsing strings in a command"
+                     Right bs -> return $ concat bs
+          line = (:) <$> many (noneOf "\n\\") <*> next
+          next = ([] <$ char '\n') <|> (char '\\' *> spaces *> line)
 
 -- | A function looks like: name() { ... \n} and is filled with fields.
 function :: Parser Field
@@ -72,14 +75,19 @@ function = Function <$> name <*> body <?> "valid function definition"
     where name = spaces *> many1 (noneOf " =(}\n")
           body = string "() {" *> spaces *> manyTill field (char '}')
 
--- | A variable looks like: name=string or name=(string string string)
+-- | A variable looks like: `name=string`, `name=(string string string)`
+-- or even `name=`
 variable :: Parser Field
-variable = Variable <$> name <*> (array <|> single) <?> "valid var definition"
-    where name = spaces *> many1 (alphaNum <|> char '_') <* char '='
+variable = Variable <$> name <*> (blank <|> array <|> single) <?> "valid var definition"
+    where name  = spaces *> many1 (alphaNum <|> char '_') <* char '='
+          blank = [] <$ space
 
 array :: Parser [BashString]
-array = concat <$> array' <?> "valid array"
-    where array' = char '(' *> spaces *> manyTill single (char ')')
+array = concat . catMaybes <$> array' <?> "valid array"
+    where array'  = char '(' *> spaces *> manyTill single' (char ')')
+          single' = choice [ Nothing <$ comment <* spaces
+                           , Nothing <$ many1 (space <|> char '\\')
+                           , Just <$> single <* many (space <|> char '\\') ]
 
 -- | Strings can be surrounded by single quotes, double quotes, backticks,
 -- or nothing.
@@ -113,7 +121,6 @@ unQuoted = map NoQuote <$> extrapolated []
 -- Example: sandwiches-are-{beautiful,fine}
 -- Note that strings like: empty-{}  or  lamp-{shade}
 -- will not be expanded and will retain their braces.
--- BUG: The statement immediately above this is a lie.
 extrapolated :: [Char] -> Parser [String]
 extrapolated stops = do
   xs <- plain <|> bracePair
@@ -123,7 +130,10 @@ extrapolated stops = do
 
 bracePair :: Parser [String]
 bracePair = between (char '{') (char '}') innards <?> "valid {...} string"
-    where innards = concat `fmap` (extrapolated ",}" `sepBy` char ',')
+    where innards = concatInnards <$> (extrapolated ",}" `sepBy` char ',')
+          concatInnards []   = ["{}"]
+          concatInnards [xs] = map (\s -> "{" ++ s ++ "}") xs
+          concatInnards xss  = concat xss
 
 ------------------
 -- `IF` STATEMENTS
@@ -163,14 +173,22 @@ andStatement = do
   body <- field
   return $ If cond [body] Nothing
 
--- Only tries to parse equality checks at the moment.
 comparison :: Parser Comparison
 comparison = do
   spaces >> leftBs >> spaces
   left <- head `fmap` single
-  try (string "= ") <|> string "== " <|> string "-eq "
+  compOp <- comparisonOp
   right <- head `fmap` single
   rightBs
-  return (Comp left right) <?> "valid comparison"
+  return (compOp left right) <?> "valid comparison"
       where leftBs  = skipMany1 $ char '['
             rightBs = skipMany1 $ char ']'
+
+comparisonOp :: Parser (BashString -> BashString -> Comparison)
+comparisonOp = choice [eq, ne, gt, ge, lt, le]
+  where eq = CompEq <$ (try (string "= ") <|> string "== " <|> string "-eq ")
+        ne = CompNe <$ (string "!= " <|> string "-ne ")
+        gt = CompGt <$ (string "> "  <|> string "-gt ")
+        ge = CompGe <$  string "-ge "
+        lt = CompLt <$ (string "< "  <|> string "-lt ")
+        le = CompLe <$  string "-le "

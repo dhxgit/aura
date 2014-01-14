@@ -2,7 +2,7 @@
 
 {-
 
-Copyright 2012, 2013 Colin Woodbury <colingw@gmail.com>
+Copyright 2012, 2013, 2014 Colin Woodbury <colingw@gmail.com>
 
 This file is part of Aura.
 
@@ -42,7 +42,7 @@ shellCmd :: String -> [String] -> Aura ()
 shellCmd cmd args = liftIO (S.shellCmd cmd args) >>= checkExitCode
 
 quietShellCmd :: String -> [String] -> Aura String
-quietShellCmd cmd args = tripleSnd `fmap` liftIO (S.quietShellCmd' cmd args)
+quietShellCmd cmd args = tripleSnd <$> liftIO (S.quietShellCmd' cmd args)
 
 -- More verbose return type.
 quietShellCmd' :: String -> [String] -> Aura (ExitCode,String,String)
@@ -50,7 +50,7 @@ quietShellCmd' cmd args = liftIO $ S.quietShellCmd' cmd args
 
 -- Should it report _what_ call failed?
 checkExitCode :: ExitCode -> Aura ()
-checkExitCode = checkExitCode' "Raw shell command call failed."
+checkExitCode = checkExitCode' ""
 
 checkExitCode' :: String -> ExitCode -> Aura ()
 checkExitCode' s ec | S.didProcessSucceed ec = return ()

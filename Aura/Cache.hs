@@ -2,7 +2,7 @@
 
 {-
 
-Copyright 2012, 2013 Colin Woodbury <colingw@gmail.com>
+Copyright 2012, 2013, 2014 Colin Woodbury <colingw@gmail.com>
 
 This file is part of Aura.
 
@@ -26,6 +26,7 @@ module Aura.Cache
     , cacheContents
     , cacheFilter
     , cacheMatches
+    , pkgsInCache
     , alterable
     , getFilename
     , allFilenames
@@ -34,6 +35,7 @@ module Aura.Cache
     , SimplePkg ) where
 
 import qualified Data.Map.Lazy as M
+import Data.List (nub)
 
 import Aura.Settings.Base
 import Aura.Monad.Aura
@@ -59,21 +61,28 @@ cache = M.fromList . map pair
 
 -- This takes the filepath of the package cache as an argument.
 rawCacheContents :: FilePath -> Aura [String]
-rawCacheContents c = filter dots `fmap` liftIO (ls c)
+rawCacheContents c = filter dots <$> liftIO (ls c)
     where dots p = p `notElem` [".",".."]
 
 cacheContents :: FilePath -> Aura Cache
-cacheContents c = cache `fmap` rawCacheContents c
+cacheContents c = cache <$> rawCacheContents c
+
+pkgsInCache :: [String] -> Aura [String]
+pkgsInCache ps =
+    nub . filter (`elem` ps) . allNames <$> (asks cachePathOf >>= cacheContents)
 
 cacheMatches :: [String] -> Aura [String]
-cacheMatches input = ask >>= cacheContents . cachePathOf >>=
-  return . searchLines (unwords input) . allFilenames
+cacheMatches input = asks cachePathOf >>= cacheContents >>=
+                     return . searchLines (unwords input) . allFilenames
 
 alterable :: Cache -> SimplePkg -> Bool
 alterable c p = M.member p c
 
 getFilename :: Cache -> SimplePkg -> Maybe FilePath
 getFilename c p = M.lookup p c
+
+allNames :: Cache -> [String]
+allNames = map fst . M.keys
 
 allFilenames :: Cache -> [FilePath]
 allFilenames = M.elems

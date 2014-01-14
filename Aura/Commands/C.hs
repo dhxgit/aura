@@ -2,7 +2,7 @@
 
 {-
 
-Copyright 2012, 2013 Colin Woodbury <colingw@gmail.com>
+Copyright 2012, 2013, 2014 Colin Woodbury <colingw@gmail.com>
 
 This file is part of Aura.
 
@@ -31,7 +31,7 @@ module Aura.Commands.C
 import System.Posix.Files (fileExist)
 import System.FilePath    ((</>))
 import Text.Regex.PCRE    ((=~))
-import Control.Monad      (filterM, unless)
+import Control.Monad      (unless)
 import Data.List          ((\\), sort, groupBy)
 import Data.Char          (isDigit)
 
@@ -52,16 +52,15 @@ import Utilities
 
 -- | Interactive. Gives the user a choice as to exactly what versions
 -- they want to downgrade to.
-downgradePackages :: [String] -> Aura ()
-downgradePackages []   = return ()
-downgradePackages pkgs = cachePathOf `fmap` ask >>= \cachePath -> do
-  reals <- filterM inCache pkgs -- This.
+downgradePackages :: [String] -> [String] -> Aura ()
+downgradePackages _ []         = return ()
+downgradePackages pacOpts pkgs = asks cachePathOf >>= \cachePath -> do
+  reals <- pkgsInCache pkgs
   reportBadDowngradePkgs (pkgs \\ reals)
   unless (null reals) $ do
     cache   <- cacheContents cachePath
     choices <- mapM (getDowngradeChoice cache) reals
-    pacman $ "-U" : map (cachePath </>) choices
-        where inCache p = notNull `fmap` cacheMatches [p]
+    pacman $ "-U" : pacOpts ++ map (cachePath </>) choices
                
 getDowngradeChoice :: Cache -> String -> Aura String
 getDowngradeChoice cache pkg = do
@@ -106,8 +105,7 @@ backup dir cache = do
 -- Manages the file copying and display of the real-time progress notifier.
 copyAndNotify :: FilePath -> [String] -> Int -> Aura ()
 copyAndNotify _ [] _       = return ()
-copyAndNotify dir (p:ps) n = do
-  cachePath <- cachePathOf `fmap` ask
+copyAndNotify dir (p:ps) n = asks cachePathOf >>= \cachePath -> do
   liftIO $ raiseCursorBy 1
   warn $ copyAndNotify_1 n
   liftIO $ cp (cachePath </> p) (dir </> p)
@@ -146,7 +144,7 @@ clean toSave = ask >>= \ss -> do
 -- | Only package files with a version not in any PkgState will be
 -- removed.
 cleanNotSaved :: Aura ()
-cleanNotSaved = cachePathOf `fmap` ask >>= \path -> do
+cleanNotSaved = asks cachePathOf >>= \path -> do
   notify cleanNotSaved_1
   states <- getStateFiles >>= mapM readState
   cache  <- cacheContents path

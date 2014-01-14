@@ -2,7 +2,7 @@
 
 {-
 
-Copyright 2012, 2013 Colin Woodbury <colingw@gmail.com>
+Copyright 2012, 2013, 2014 Colin Woodbury <colingw@gmail.com>
 
 This file is part of Aura.
 
@@ -32,7 +32,7 @@ along with Aura.  If not, see <http://www.gnu.org/licenses/>.
 -}
 
 import System.Environment (getArgs)
-import Control.Monad      (unless)
+import Control.Monad      (when)
 import System.Exit        (exitSuccess, exitFailure)
 import Data.List          (nub, sort, intercalate)
 
@@ -63,7 +63,7 @@ import Aura.Commands.O as O
 type UserInput = ([Flag],[String],[String])
 
 auraVersion :: String
-auraVersion = "1.2.0.1"
+auraVersion = "1.2.2.0"
 
 main :: IO a
 main = getArgs >>= prepSettings . processFlags >>= execute >>= exit
@@ -81,8 +81,8 @@ prepSettings (ui,lang) = (ui,) `fmap` getSettings lang ui
 -- | Hand user input to the Aura Monad and run it.
 execute :: (UserInput,Settings) -> IO (Either AuraError ())
 execute ((flags,input,pacOpts),ss) = do
-  let flags' = filterSettingsFlags flags
-  unless (Debug `notElem` flags) $ debugOutput ss
+  let flags' = filter notSettingsFlag flags
+  when (Debug `elem` flags) $ debugOutput ss
   runAura (executeOpts (flags',input,pacOpts)) ss
 
 exit :: Either AuraError () -> IO a
@@ -128,7 +128,7 @@ executeOpts (flags,input,pacOpts) =
           badFlags       -> scoldAndFail executeOpts_1
     (Cache:fs) ->
         case fs of
-          []             -> sudo $ C.downgradePackages input
+          []             -> sudo $ C.downgradePackages pacOpts input
           [Clean]        -> sudo $ C.cleanCache input
           [Clean,Clean]  -> sudo C.cleanNotSaved
           [Search]       -> C.searchCache input
@@ -143,7 +143,7 @@ executeOpts (flags,input,pacOpts) =
     (Orphans:fs) ->
         case fs of
           []        -> O.displayOrphans input
-          [Abandon] -> sudo $ getOrphans >>= flip removePkgs pacOpts
+          [Abandon] -> sudo $ orphans >>= flip removePkgs pacOpts
           badFlags  -> scoldAndFail executeOpts_1
     [ViewConf]  -> viewConfFile
     [Languages] -> displayOutputLanguages

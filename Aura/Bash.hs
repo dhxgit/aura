@@ -2,7 +2,7 @@
 
 {-
 
-Copyright 2012, 2013 Colin Woodbury <colingw@gmail.com>
+Copyright 2012, 2013, 2014 Colin Woodbury <colingw@gmail.com>
 
 This file is part of Aura.
 
@@ -40,7 +40,7 @@ import Bash.Base
 
 namespace :: String -> String -> Aura Namespace
 namespace pn pb = do
-  carch <- ((: []) . NoQuote . carchOf) `fmap` ask
+  carch <- ((: []) . NoQuote . carchOf) <$> ask
   case namespace' carch pn pb of
     Left e   -> liftIO (print e) >> failure "PKGBUILD parse failed."
     Right ns -> return ns

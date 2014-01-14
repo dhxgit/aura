@@ -2,7 +2,7 @@
 
 {-
 
-Copyright 2012, 2013 Colin Woodbury <colingw@gmail.com>
+Copyright 2012, 2013, 2014 Colin Woodbury <colingw@gmail.com>
 
 This file is part of Aura.
 
@@ -22,15 +22,14 @@ along with Aura.  If not, see <http://www.gnu.org/licenses/>.
 -}
 
 module Aura.MakePkg
-    ( makepkgQuiet
-    , makepkgVerbose
+    ( makepkg
     , makepkgSource
     , makepkgConfFile ) where
 
 import Text.Regex.PCRE ((=~))
-import Data.List (intercalate)
 
 import Aura.Monad.Aura
+import Aura.Settings.Base (suppressMakepkg,makepkgFlagsOf)
 import Aura.Shell (shellCmd, quietShellCmd, quietShellCmd', checkExitCode')
 
 import Shell (pwd, ls)
@@ -43,26 +42,31 @@ makepkgConfFile = "/etc/makepkg.conf"
 makepkgCmd :: FilePath
 makepkgCmd = "/usr/bin/makepkg"
 
--- TODO: Clean this up.
+makepkg :: Aura (String -> Aura [FilePath])
+makepkg = asks suppressMakepkg >>= \quiet ->
+          if quiet then return makepkgQuiet else return makepkgVerbose
+
+-- TODO: Clean this up. Incompatible with `-x` and `--ignorearch`?
 -- | Make a source package.
 makepkgSource :: String -- ^ User
               -> Bool   -- ^ Include downloaded sources (--allsource)
               -> Aura [FilePath]
 makepkgSource user allsource =
-  let allsourceOpt = if allsource then "--allsource" else "-S"
-      (cmd, opts)  = determineRunStyle user [allsourceOpt]
-  in quietShellCmd cmd opts >> filter (=~ ".src.tar") `fmap` liftIO (pwd >>= ls)
+    quietShellCmd cmd opts >> filter (=~ ".src.tar") <$> liftIO (pwd >>= ls)
+        where
+          allsourceOpt = if allsource then "--allsource" else "-S"
+          (cmd,opts)   = runStyle user [allsourceOpt]
 
 -- Builds a package with `makepkg`.
 -- Some packages create multiple .pkg.tar files. These are all returned.
 makepkgGen :: (String -> [String] -> Aura a) -> String -> Aura [FilePath]
-makepkgGen f user =
-    f cmd opts >> filter (=~ ".pkg.tar") `fmap` liftIO (pwd >>= ls)
-      where (cmd,opts) = determineRunStyle user []
+makepkgGen make user = asks makepkgFlagsOf >>= \clfs -> do
+    let (cmd,opts) = runStyle user clfs
+    make cmd (opts ++ clfs) >> filter (=~ ".pkg.tar") <$> liftIO (pwd >>= ls)
 
-determineRunStyle :: String -> [String] -> (String,[String])
-determineRunStyle "root" opts = (makepkgCmd,["--asroot"] ++ opts)
-determineRunStyle user opts = ("su",[user,"-c",makepkgCmd ++ intercalate " " opts])
+runStyle :: String -> [String] -> (String,[String])
+runStyle "root" opts = (makepkgCmd, "--asroot" : opts)
+runStyle user opts   = ("sudo",["-u", user, makepkgCmd] ++ opts)
 
 makepkgQuiet :: String -> Aura [FilePath]
 makepkgQuiet user = makepkgGen quiet user

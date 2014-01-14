@@ -1,6 +1,6 @@
 {-
 
-Copyright 2012, 2013 Colin Woodbury <colingw@gmail.com>
+Copyright 2012, 2013, 2014 Colin Woodbury <colingw@gmail.com>
 
 This file is part of Aura.
 
@@ -21,15 +21,17 @@ along with Aura.  If not, see <http://www.gnu.org/licenses/>.
 
 module Aura.Pkgbuild.Base where
 
+import Control.Monad ((>=>))
+
 import Aura.Bash
+import Aura.Core
+import Aura.Monad.Aura
+import Aura.Pkgbuild.Editing
 
 ---
 
 pkgbuildCache :: FilePath
 pkgbuildCache = "/var/cache/aura/pkgbuilds/"
-
-customizepkgPath :: FilePath
-customizepkgPath = "/etc/customizepkg.d/"
 
 toFilename :: String -> FilePath
 toFilename = (++ ".pb")
@@ -41,11 +43,29 @@ trueVersion :: Namespace -> String
 trueVersion ns = pkgver ++ "-" ++ pkgrel
     where pkgver = head $ value ns "pkgver"
           pkgrel = head $ value ns "pkgrel"
-{-}
-    where foo s = case value ns s of
-                    [] -> error "error in trueVersion!!!"
-                    vn -> head vn
-          pkgver = foo "pkgver"
-          pkgrel = foo "pkgrel"
--}                  
 
+-- | Yields the value of the `depends` field.
+depends :: Namespace -> [String]
+depends = flip value "depends"
+
+makedepends :: Namespace -> [String]
+makedepends = flip value "makedepends"
+
+checkdepends :: Namespace -> [String]
+checkdepends = flip value "checkdepends"
+
+-- One of my favourite functions in this code base.
+pbCustomization :: Buildable -> Aura Buildable
+pbCustomization = foldl (>=>) return [customizepkg,hotEdit]
+
+-- | Package a Buildable, running the customization handler first.
+packageBuildable :: Buildable -> Aura Package
+packageBuildable b = do
+    b' <- pbCustomization b
+    ns <- namespace (baseNameOf b') (pkgbuildOf b')
+    return Package
+        { pkgNameOf        = baseNameOf b'
+        , pkgVersionOf     = trueVersion ns
+        , pkgDepsOf        = map parseDep $ concatMap ($ ns)
+                             [depends,makedepends,checkdepends]
+        , pkgInstallTypeOf = Build b' }

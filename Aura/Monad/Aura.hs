@@ -2,7 +2,7 @@
 
 {-
 
-Copyright 2012, 2013 Colin Woodbury <colingw@gmail.com>
+Copyright 2012, 2013, 2014 Colin Woodbury <colingw@gmail.com>
 
 This file is part of Aura.
 
@@ -30,7 +30,10 @@ module Aura.Monad.Aura
     , wrap
     , getErrorMsg
     , liftIO
-    , ask ) where
+    , ask
+    , asks
+    , (<$>)
+    ) where
 
 import Control.Monad.Reader
 import Control.Monad.Error

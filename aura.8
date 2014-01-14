@@ -1,7 +1,7 @@
 .\" Man page for `aura`
 .\" Written by Colin Woodbury <colingw@gmail.com>
 
-.TH aura 8 "May 2013" "Aura" "Aura Manual"
+.TH aura 8 "January 2014" "Aura" "Aura Manual"
 
 .\" Disable hyphenation.
 .nh
@@ -112,7 +112,15 @@ dependencies will only show uncoloured package names.
 .P
 \fB\-s\fR, \-\-search <word(s)>
 .RS 4
-Search the AUR via words only (no regex).
+Search the AUR via words only (no regex). Results are sorted by vote. 
+Suboptions:
+.RS 4
+\fI\-\-abc\fR  : Sorts results alphabetically.
+.P
+\fI\-\-head\fR : Only show the first 10 results.
+.P
+\fI\-\-tail\fR : Only show the last 10 results.
+.RE
 .RE
 .P
 \fB\-u\fR, \-\-sysupgrade
@@ -155,6 +163,18 @@ of a pre-existing directory can be used. Example:
 .RE
 .RE
 .P
+\fB\-\-builduser\fR=username
+.RS 4
+Specify the user to build packages as. This can be useful when logged in
+as root and a build user is available.
+.RE
+.P
+\fB\-\-custom\fR
+.RS 4
+Run \fIcustomizepkg\fR on packages before building. Note that you need
+customizepkg installed and set up correctly for this to work.
+.RE
+.P
 \fB\-\-devel\fR
 .RS 4
 When ran with \fI\-Au\fR, adds all development packages to the queue
@@ -171,6 +191,12 @@ Research into packages (and by extension, their PKGBUILDs) should be done
 before any building occurs. Please use \fI\-Ap\fR and \fI\-Ad\fR for this,
 as they will be much faster at presenting information than searching the
 AUR website manually.
+.RE
+.P
+\fB\-\-ignorearch\fR
+.RS 4
+A \fImakepkg\fR flag visible at the Aura level. Ignores processor architecture
+when building packages.
 .RE
 
 .SH GLOBAL PACKAGE STATE OPTIONS (\fI\-B\fR)
@@ -291,6 +317,12 @@ Sync all packages present in the local ABS Tree to their latest version.
 This is different from just "sudo abs", which pulls down the \fIentire\fR tree as
 available from the repositories.
 .RE
+.P
+\fB\-\-absdeps\fR
+.RS 4
+All repository (pacman) dependencies not yet installed will also be manually built.
+Also usable with \fI\-A\fR.
+.RE
 
 .SH ORPHAN PACKAGE OPTIONS (\fI\-O\fR)
 .P
@@ -362,6 +394,8 @@ native characters. The available languages are, in option form:
 \-\-italian, \-\-italiano
 .P
 \-\-serbian, \-\-српски
+.P
+\-\-norwegian, \-\-norsk
 
 .SH PRO TIPS
 .P
@@ -406,6 +440,8 @@ Colin Woodbury <colingw@gmail.com>
 
 .SH CONTRIBUTORS
 .P
+Kyle Raftogianis
+.P
 Nicholas Clarke <nicholas.clarke@sanger.ac.uk>
 .P
 Denis Kasak <denis.kasak@gmail.com>
@@ -426,8 +462,12 @@ Denis Kasak <denis.kasak@gmail.com>
 .P
 (   French   ) Ma Jiehong
 .P
+(   French   ) Fabien Dubosson
+.P
 (  Russian   ) Kyrylo Silin <kyrylosilin@gmail.com>
 .P
 (  Italian   ) Bob Valantin
 .P
 (  Serbian   ) Filip Brcic
+.P
+( Norwegian  ) "chinatsun"

@@ -1,6 +1,6 @@
 {-
 
-Copyright 2012, 2013 Colin Woodbury <colingw@gmail.com>
+Copyright 2012, 2013, 2014 Colin Woodbury <colingw@gmail.com>
 
 This file is part of Aura.
 
@@ -34,19 +34,24 @@ module Aura.Flags
     , pbDiffStatus
     , rebuildDevelStatus
     , customizepkgStatus
-    , filterSettingsFlags
+    , notSettingsFlag
     , ignoredAuraPkgs
+    , makepkgFlags
     , buildPath
+    , buildUser
     , auraOperMsg
     , noPowerPillStatus
     , keepSourceStatus
     , buildABSDepsStatus
+    , sortSchemeStatus
+    , truncationStatus
     , Flag(..) ) where
 
 import System.Console.GetOpt
 import Data.Maybe (fromMaybe)
 
 import Aura.Colour.Text (yellow)
+import Aura.Settings.Base
 import Aura.Languages
 
 import Utilities (notNull, split)
@@ -76,6 +81,10 @@ data Flag = ABSInstall
           | Quiet
           | Ignore String
           | BuildPath FilePath
+          | BuildUser String
+          | ABCSort
+          | TruncHead
+          | TruncTail
           | DiffPkgbuilds
           | Devel
           | Customizepkg
@@ -88,6 +97,7 @@ data Flag = ABSInstall
           | ViewConf
           | RestoreState
           | NoPowerPill
+          | IgnoreArch
           | Languages
           | Version
           | Help
@@ -102,6 +112,7 @@ data Flag = ABSInstall
           | RussianOut
           | ItalianOut
           | SerbianOut
+          | NorwegiOut
             deriving (Eq,Ord,Show)
 
 allFlags :: Language -> [OptDescr Flag]
@@ -110,8 +121,8 @@ allFlags lang = concat [ auraOperations lang
                        , pacmanOptions
                        , dualOptions ]
 
-simpleMakeOption :: ([Char],[String],Flag) -> OptDescr Flag
-simpleMakeOption (c,s,f) = Option c s (NoArg f) ""
+simpleOption :: ([Char],[String],Flag) -> OptDescr Flag
+simpleOption (c,s,f) = Option c s (NoArg f) ""
 
 auraOperations :: Language -> [OptDescr Flag]
 auraOperations lang =
@@ -125,7 +136,8 @@ auraOperations lang =
 auraOptions :: [OptDescr Flag]
 auraOptions = Option [] ["aurignore"] (ReqArg Ignore ""    ) "" :
               Option [] ["build"]     (ReqArg BuildPath "" ) "" :
-              map simpleMakeOption
+              Option [] ["builduser"] (ReqArg BuildUser "" ) "" :
+              map simpleOption
               [ ( ['a'], ["delmakedeps"],  DelMDeps      )
               , ( ['b'], ["backup"],       CacheBackup   )
               , ( ['c'], ["clean"],        Clean         )
@@ -141,30 +153,34 @@ auraOptions = Option [] ["aurignore"] (ReqArg Ignore ""    ) "" :
               , ( ['u'], ["sysupgrade"],   Upgrade       )
               , ( ['w'], ["downloadonly"], Download      )
               , ( ['x'], ["unsuppress"],   Unsuppress    )
+              , ( [],    ["abc"],          ABCSort       )
               , ( [],    ["absdeps"],      BuildABSDeps  )
               , ( [],    ["allsource"],    KeepSource    )
               , ( [],    ["auradebug"],    Debug         )
               , ( [],    ["custom"],       Customizepkg  )
               , ( [],    ["devel"],        Devel         )
+              , ( [],    ["head"],         TruncHead     )
               , ( [],    ["hotedit"],      HotEdit       )
+              , ( [],    ["ignorearch"],   IgnoreArch    )
               , ( [],    ["languages"],    Languages     )
               , ( [],    ["no-pp"],        NoPowerPill   )
+              , ( [],    ["tail"],         TruncTail     )
               , ( [],    ["viewconf"],     ViewConf      ) ]
 
 -- These are intercepted Pacman flags. Their functionality is different.
 pacmanOptions :: [OptDescr Flag]
-pacmanOptions = map simpleMakeOption
+pacmanOptions = map simpleOption
                 [ ( ['y'], ["refresh"], Refresh )
                 , ( ['V'], ["version"], Version )
                 , ( ['h'], ["help"],    Help    ) ]
 
 -- Options that have functionality stretching across both Aura and Pacman.
 dualOptions :: [OptDescr Flag]
-dualOptions = map simpleMakeOption
+dualOptions = map simpleOption
               [ ( [], ["noconfirm"], NoConfirm ) ]
 
 languageOptions :: [OptDescr Flag]
-languageOptions = map simpleMakeOption
+languageOptions = map simpleOption
                   [ ( [], ["japanese","日本語"],      JapOut      )
                   , ( [], ["polish","polski"],        PolishOut   )
                   , ( [], ["croatian","hrvatski"],    CroatianOut )
@@ -175,7 +191,8 @@ languageOptions = map simpleMakeOption
                   , ( [], ["french","français"],      FrenchOut   )
                   , ( [], ["russian","русский"],      RussianOut  )
                   , ( [], ["italian","italiano"],     ItalianOut  )
-                  , ( [], ["serbian","српски"],       SerbianOut  ) ]
+                  , ( [], ["serbian","српски"],       SerbianOut  ) 
+                  , ( [], ["norwegian","norsk"],      NorwegiOut  ) ]
 
 -- `Hijacked` flags. They have original pacman functionality, but
 -- that is masked and made unique in an Aura context.
@@ -207,20 +224,22 @@ reconvertFlag flagMap f = fromMaybe "" $ f `lookup` flagMap
 
 settingsFlags :: [Flag]
 settingsFlags = [ Unsuppress,NoConfirm,HotEdit,DiffPkgbuilds,Debug,Devel
-                , DelMDeps,Customizepkg,Quiet,NoPowerPill,KeepSource,BuildABSDeps ]
+                , DelMDeps,Customizepkg,Quiet,NoPowerPill,KeepSource,BuildABSDeps
+                , ABCSort, TruncHead, TruncTail, IgnoreArch ]
 
-filterSettingsFlags :: [Flag] -> [Flag]
-filterSettingsFlags []                 = []
-filterSettingsFlags (Ignore _ : fs)    = filterSettingsFlags fs
-filterSettingsFlags (BuildPath _ : fs) = filterSettingsFlags fs
-filterSettingsFlags (f:fs) | f `elem` settingsFlags = filterSettingsFlags fs
-                           | otherwise = f : filterSettingsFlags fs
+-- Flags like `Ignore` and `BuildPath` have args, and thus can't be included
+-- in the `settingsFlags` list.
+notSettingsFlag :: Flag -> Bool
+notSettingsFlag (Ignore _)    = False
+notSettingsFlag (BuildPath _) = False
+notSettingsFlag (BuildUser _) = False
+notSettingsFlag f             = f `notElem` settingsFlags
 
 auraOperMsg :: Language -> String
 auraOperMsg lang = usageInfo (yellow $ auraOperTitle lang) $ auraOperations lang
 
 -- Extracts desirable results from given Flags.
--- Callers must supply an alternate value for when there are no matches.
+-- Callers must supply an [alt]ernate value for when there are no matches.
 fishOutFlag :: [(Flag,a)] -> a -> [Flag] -> a
 fishOutFlag [] alt _             = alt
 fishOutFlag ((f,r):fs) alt flags | f `elem` flags = r
@@ -231,7 +250,7 @@ getLanguage = fishOutFlag flagsAndResults Nothing
     where flagsAndResults = zip langFlags langFuns
           langFlags       = [ JapOut,PolishOut,CroatianOut,SwedishOut
                             , GermanOut,SpanishOut,PortuOut,FrenchOut
-                            , RussianOut,ItalianOut,SerbianOut ]
+                            , RussianOut,ItalianOut,SerbianOut,NorwegiOut ]
           langFuns        = map Just [Japanese ..]
 
 ignoredAuraPkgs :: [Flag] -> [String]
@@ -244,6 +263,13 @@ buildPath [] = ""
 buildPath (BuildPath p : _) = p
 buildPath (_:fs) = buildPath fs
 
+buildUser :: [Flag] -> Maybe String
+buildUser [] = Nothing
+buildUser (BuildUser u : _) = Just u
+buildUser (_:fs) = buildUser fs
+
+truncationStatus   = fishOutFlag [(TruncHead,Head),(TruncTail,Tail)] None
+sortSchemeStatus   = fishOutFlag [(ABCSort,Alphabetically)] ByVote
 suppressionStatus  = fishOutFlag [(Unsuppress,False)] True
 delMakeDepsStatus  = fishOutFlag [(DelMDeps,True)] False
 confirmationStatus = fishOutFlag [(NoConfirm,False)] True
@@ -255,6 +281,9 @@ customizepkgStatus = fishOutFlag [(Customizepkg,True)] False
 noPowerPillStatus  = fishOutFlag [(NoPowerPill,True)] False
 keepSourceStatus   = fishOutFlag [(KeepSource,True)] False
 buildABSDepsStatus = fishOutFlag [(BuildABSDeps,True)] False
+
+makepkgFlags :: [Flag] -> [String]
+makepkgFlags = fishOutFlag [(IgnoreArch,["--ignorearch"])] []
 
 parseLanguageFlag :: [String] -> (Maybe Language,[String])
 parseLanguageFlag args =

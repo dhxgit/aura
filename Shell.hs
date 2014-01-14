@@ -2,7 +2,7 @@
 
 {-
 
-Copyright 2012, 2013 Colin Woodbury <colingw@gmail.com>
+Copyright 2012, 2013, 2014 Colin Woodbury <colingw@gmail.com>
 
 This file is part of Aura.
 
@@ -33,18 +33,20 @@ along with Aura.  If not, see <http://www.gnu.org/licenses/>.
 module Shell where
 
 -- System Libraries
-import System.FilePath ((</>))
-import System.Process  (readProcess, readProcessWithExitCode, rawSystem)
-import Control.Monad   (void)
-import System.Exit     (ExitCode(..))
-import Data.Maybe      (fromMaybe, fromJust)
-import Data.List       (intercalate)
-import System.Directory ( getDirectoryContents
-                        , setCurrentDirectory
-                        , getCurrentDirectory
-                        , removeFile
-                        , renameFile
-                        , copyFile )
+import Control.Exception (catchJust)
+import System.FilePath   ((</>))
+import System.Process    (readProcess, readProcessWithExitCode, rawSystem)
+import Control.Monad     (void)
+import Data.Maybe        (fromMaybe, fromJust)
+import Data.List         (intercalate)
+import System.Directory  ( getDirectoryContents
+                         , setCurrentDirectory
+                         , getCurrentDirectory
+                         , removeFile
+                         , renameFile
+                         , copyFile )
+
+import GHC.IO.Exception
 
 ---
 
@@ -71,7 +73,9 @@ ls'' :: FilePath -> IO [FilePath]
 ls'' p = map (p </>) `fmap` ls' p
 
 mv :: FilePath -> FilePath -> IO ()
-mv = renameFile
+mv f f' = catchJust unsupported (renameFile f f') (\_ -> cp f f' >> rm f)
+  where unsupported x@(IOError _ UnsupportedOperation _ _ _ _) = Just x
+        unsupported _ = Nothing
 
 cd :: FilePath -> IO ()
 cd = setCurrentDirectory
