@@ -1,5 +1,22 @@
 Aura Changelog
 ==============
+1.2.3.1
+-------
+- Network.HTTP.Conduit errors are now caught properly
+  and don't crash aura.
+- `customizepkg` usage corrected.
+- zsh completions slightly expanded.
+
+1.2.3.0
+-------
+- Moved to `Network.HTTP.Conduit` from `Network.Curl`
+  This fixes the AUR connection issues.
+  Binary size has increased by quite a bit.
+
+1.2.2.1
+-------
+- `-Ai` now shows dependencies.
+
 1.2.2.0
 -------
 - Happy New Year!
